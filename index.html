@@ -1,0 +1,470 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Agent Copilot — Empathetic Reply Assistant</title>
+<style>
+  :root{
+    --ink:#1b2430;
+    --ink-soft:#54627a;
+    --line:#d7dee6;
+    --paper:#f6f8fa;
+    --panel:#ffffff;
+    --moss:#2f6f5e;      /* calm, positive accent */
+    --moss-deep:#1f4f42;
+    --moss-wash:#e7f2ee;
+    --amber:#c98a2c;     /* status / attention, used sparingly */
+    --danger:#b3453b;
+    --radius:10px;
+  }
+  *{box-sizing:border-box;}
+  html,body{height:100%;}
+  body{
+    margin:0;
+    font-family:"Iowan Old Style","Palatino Linotype",Palatino,Georgia,serif;
+    background:var(--paper);
+    color:var(--ink);
+    display:flex;
+    flex-direction:column;
+  }
+
+  header{
+    display:flex;
+    align-items:baseline;
+    gap:14px;
+    padding:18px 24px 14px;
+    border-bottom:1px solid var(--line);
+    background:var(--panel);
+  }
+  header h1{
+    font-size:1.35rem;
+    margin:0;
+    font-weight:600;
+    letter-spacing:0.2px;
+  }
+  header p{
+    margin:0;
+    color:var(--ink-soft);
+    font-size:0.92rem;
+    font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif;
+  }
+
+  .setup{
+    background:var(--panel);
+    border-bottom:1px solid var(--line);
+    padding:12px 24px;
+    display:flex;
+    flex-wrap:wrap;
+    gap:10px 18px;
+    align-items:center;
+    font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif;
+    font-size:0.88rem;
+  }
+  .setup label{ color:var(--ink-soft); }
+  .setup input[type=password],
+  .setup input[type=text]{
+    font-family:inherit;
+    font-size:0.88rem;
+    padding:6px 9px;
+    border:1px solid var(--line);
+    border-radius:7px;
+    background:#fff;
+    min-width:230px;
+  }
+  .setup .field{ display:flex; align-items:center; gap:6px; }
+  .keynote{ color:var(--ink-soft); font-style:italic; }
+
+  main{
+    flex:1;
+    display:flex;
+    gap:18px;
+    padding:18px 24px 24px;
+    min-height:0;
+  }
+
+  .col{
+    background:var(--panel);
+    border:1px solid var(--line);
+    border-radius:var(--radius);
+    display:flex;
+    flex-direction:column;
+    min-height:0;
+    overflow:hidden;
+  }
+  .col-left{ flex:1.35; }
+  .col-right{ flex:1; }
+
+  .col-head{
+    padding:12px 16px;
+    border-bottom:1px solid var(--line);
+    display:flex;
+    align-items:center;
+    justify-content:space-between;
+    gap:10px;
+  }
+  .col-head h2{
+    margin:0;
+    font-size:1rem;
+    font-weight:600;
+  }
+  .col-body{
+    padding:14px 16px;
+    display:flex;
+    flex-direction:column;
+    gap:12px;
+    min-height:0;
+    flex:1;
+    overflow:auto;
+  }
+
+  .actions{ display:flex; gap:8px; flex-wrap:wrap; }
+
+  button{
+    font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif;
+    font-size:0.86rem;
+    border:1px solid var(--moss);
+    background:var(--moss);
+    color:#fff;
+    padding:8px 14px;
+    border-radius:7px;
+    cursor:pointer;
+    transition:background .15s ease, transform .05s ease;
+  }
+  button:hover{ background:var(--moss-deep); border-color:var(--moss-deep); }
+  button:active{ transform:translateY(1px); }
+  button:disabled{
+    background:#cbd3dc; border-color:#cbd3dc; color:#7a8494; cursor:not-allowed;
+  }
+  button.secondary{
+    background:transparent; color:var(--moss-deep); border-color:var(--line);
+  }
+  button.secondary:hover{ background:var(--moss-wash); border-color:var(--moss); }
+
+  .screen-frame{
+    position:relative;
+    background:#0f1720;
+    border-radius:8px;
+    overflow:hidden;
+    aspect-ratio:16/9;
+    display:flex;
+    align-items:center;
+    justify-content:center;
+    flex-shrink:0;
+  }
+  .screen-frame video, .screen-frame canvas{
+    width:100%; height:100%; object-fit:contain; display:block;
+  }
+  .screen-frame .placeholder{
+    color:#8fa0b3;
+    font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif;
+    font-size:0.85rem;
+    text-align:center;
+    padding:20px;
+    line-height:1.5;
+  }
+  #snapshotCanvas{ display:none; }
+
+  .field-label{
+    font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif;
+    font-size:0.8rem;
+    color:var(--ink-soft);
+    text-transform:none;
+  }
+
+  textarea{
+    width:100%;
+    font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif;
+    font-size:0.92rem;
+    line-height:1.5;
+    padding:10px 12px;
+    border:1px solid var(--line);
+    border-radius:8px;
+    resize:vertical;
+    color:var(--ink);
+  }
+  #transcriptText{ min-height:100px; }
+  #responseText{
+    flex:1;
+    min-height:180px;
+    font-family:"Iowan Old Style","Palatino Linotype",Palatino,Georgia,serif;
+    font-size:1.02rem;
+    background:var(--moss-wash);
+    border-color:#cfe3db;
+  }
+
+  .note-row{
+    display:flex; gap:8px; align-items:center;
+    font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif;
+    font-size:0.85rem;
+  }
+  .note-row input[type=text]{
+    flex:1; padding:7px 10px; border:1px solid var(--line); border-radius:7px; font-family:inherit; font-size:0.85rem;
+  }
+
+  .status-bar{
+    font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif;
+    font-size:0.82rem;
+    color:var(--ink-soft);
+    padding:10px 24px;
+    border-top:1px solid var(--line);
+    background:var(--panel);
+    display:flex;
+    align-items:center;
+    gap:8px;
+  }
+  .dot{
+    width:8px;height:8px;border-radius:50%;
+    background:#b7c0cc;
+    flex-shrink:0;
+  }
+  .dot.busy{ background:var(--amber); animation:pulse 1s infinite ease-in-out; }
+  .dot.ok{ background:var(--moss); }
+  .dot.err{ background:var(--danger); }
+  @keyframes pulse{ 0%,100%{opacity:1;} 50%{opacity:.35;} }
+
+  ::placeholder{ color:#9aa5b3; }
+
+  @media (max-width: 860px){
+    main{ flex-direction:column; }
+  }
+</style>
+</head>
+<body>
+
+<header>
+  <h1>Agent Copilot</h1>
+  <p>Watch the chat, draft empathetic replies</p>
+</header>
+
+<div class="setup">
+  <div class="field">
+    <label for="apiKey">OpenRouter API key</label>
+    <input type="password" id="apiKey" placeholder="sk-or-v1-...">
+  </div>
+  <div class="field">
+    <label for="modelName">Model</label>
+    <input type="text" id="modelName" value="openai/gpt-4o-mini" style="min-width:170px;">
+  </div>
+  <button class="secondary" id="saveKeyBtn" type="button">Save in this browser</button>
+  <span class="keynote">Stored only in this browser's local storage — never written into this file.</span>
+</div>
+
+<main>
+  <section class="col col-left">
+    <div class="col-head">
+      <h2>Chat screen</h2>
+      <div class="actions">
+        <button id="shareBtn" type="button">Share screen / window</button>
+        <button id="captureBtn" type="button" disabled>Capture chat</button>
+      </div>
+    </div>
+    <div class="col-body">
+      <div class="screen-frame" id="screenFrame">
+        <video id="liveVideo" autoplay muted playsinline style="display:none;"></video>
+        <canvas id="snapshotCanvas"></canvas>
+        <div class="placeholder" id="framePlaceholder">
+          Click "Share screen / window" and choose the window or tab with your<br>
+          chat conversation. Then click "Capture chat" whenever a new message arrives.
+        </div>
+      </div>
+      <div>
+        <div class="field-label">Extracted chat text (edit if OCR missed anything, then generate)</div>
+        <textarea id="transcriptText" placeholder="Captured chat text will appear here..."></textarea>
+      </div>
+    </div>
+  </section>
+
+  <section class="col col-right">
+    <div class="col-head">
+      <h2>Suggested reply</h2>
+      <div class="actions">
+        <button id="generateBtn" type="button" disabled>Generate reply</button>
+      </div>
+    </div>
+    <div class="col-body">
+      <div class="note-row">
+        <label for="extraNote" class="field-label" style="white-space:nowrap;">Note for AI</label>
+        <input type="text" id="extraNote" placeholder="e.g. keep it brief, customer wants a refund...">
+      </div>
+      <textarea id="responseText" placeholder="Your empathetic, positive-toned reply will appear here after you generate one."></textarea>
+      <div class="actions">
+        <button id="copyBtn" type="button" class="secondary">Copy to clipboard</button>
+      </div>
+    </div>
+  </section>
+</main>
+
+<div class="status-bar">
+  <span class="dot" id="statusDot"></span>
+  <span id="statusText">Ready. Share your screen to begin.</span>
+</div>
+
+<script src="https://cdn.jsdelivr.net/npm/tesseract.js@5/dist/tesseract.min.js"></script>
+<script>
+(function(){
+  const video = document.getElementById('liveVideo');
+  const canvas = document.getElementById('snapshotCanvas');
+  const placeholder = document.getElementById('framePlaceholder');
+  const shareBtn = document.getElementById('shareBtn');
+  const captureBtn = document.getElementById('captureBtn');
+  const generateBtn = document.getElementById('generateBtn');
+  const copyBtn = document.getElementById('copyBtn');
+  const saveKeyBtn = document.getElementById('saveKeyBtn');
+  const apiKeyInput = document.getElementById('apiKey');
+  const modelInput = document.getElementById('modelName');
+  const extraNoteInput = document.getElementById('extraNote');
+  const transcriptText = document.getElementById('transcriptText');
+  const responseText = document.getElementById('responseText');
+  const statusDot = document.getElementById('statusDot');
+  const statusText = document.getElementById('statusText');
+
+  let stream = null;
+
+  // ---- persisted settings (this browser only) ----
+  const savedKey = localStorage.getItem('agentCopilot_apiKey');
+  const savedModel = localStorage.getItem('agentCopilot_model');
+  if (savedKey) apiKeyInput.value = savedKey;
+  if (savedModel) modelInput.value = savedModel;
+
+  saveKeyBtn.addEventListener('click', () => {
+    localStorage.setItem('agentCopilot_apiKey', apiKeyInput.value.trim());
+    localStorage.setItem('agentCopilot_model', modelInput.value.trim());
+    setStatus('ok', 'Settings saved in this browser.');
+  });
+
+  function setStatus(kind, msg){
+    statusDot.className = 'dot' + (kind ? ' ' + kind : '');
+    statusText.textContent = msg;
+  }
+
+  // ---- screen share ----
+  shareBtn.addEventListener('click', async () => {
+    try{
+      stream = await navigator.mediaDevices.getDisplayMedia({ video: { cursor: 'never' }, audio: false });
+      video.srcObject = stream;
+      video.style.display = 'block';
+      placeholder.style.display = 'none';
+      captureBtn.disabled = false;
+      setStatus('ok', 'Screen sharing active. Frame the chat window, then click "Capture chat".');
+
+      stream.getVideoTracks()[0].addEventListener('ended', () => {
+        video.style.display = 'none';
+        placeholder.style.display = 'block';
+        captureBtn.disabled = true;
+        setStatus('', 'Screen sharing stopped.');
+      });
+    }catch(err){
+      setStatus('err', 'Screen share was not granted: ' + err.message);
+    }
+  });
+
+  // ---- capture + OCR ----
+  captureBtn.addEventListener('click', async () => {
+    if (!stream) return;
+    try{
+      setStatus('busy', 'Capturing frame...');
+      const w = video.videoWidth, h = video.videoHeight;
+      canvas.width = w; canvas.height = h;
+      const ctx = canvas.getContext('2d');
+      ctx.drawImage(video, 0, 0, w, h);
+
+      setStatus('busy', 'Reading chat text (OCR)... this can take a few seconds.');
+      const { data: { text } } = await Tesseract.recognize(canvas, 'eng');
+      transcriptText.value = text.trim();
+      generateBtn.disabled = false;
+      setStatus('ok', 'Chat text extracted. Review it, then click "Generate reply".');
+    }catch(err){
+      setStatus('err', 'Capture/OCR failed: ' + err.message);
+    }
+  });
+
+  // ---- AI reply ----
+  const SYSTEM_PROMPT = `You are an assistant helping a live customer service agent in real time.
+You will be given a transcript of the ongoing chat with a customer, extracted via OCR from a
+screen capture (so it may contain small typos or formatting glitches). Draft ONE suggested reply
+the agent could send next.
+
+Requirements:
+- Lead with genuine, specific empathy for the customer's situation (not generic phrases like
+  "I understand your frustration" repeated every time).
+- Use warm, positive, solution-focused language.
+- Be concise: 2-4 sentences.
+- Be professional and calm, never dismissive.
+- Do NOT invent facts about the customer's account, order, or policies that aren't in the transcript.
+- If the transcript is unclear or incomplete, write a reply that asks a clarifying question
+  empathetically rather than guessing.
+- Return ONLY the suggested reply text. No preamble, no labels, no quotes.`;
+
+  generateBtn.addEventListener('click', async () => {
+    const apiKey = apiKeyInput.value.trim();
+    const model = modelInput.value.trim() || 'openai/gpt-4o-mini';
+    const transcript = transcriptText.value.trim();
+    const note = extraNoteInput.value.trim();
+
+    if (!apiKey){
+      setStatus('err', 'Add your OpenRouter API key above first.');
+      return;
+    }
+    if (!transcript){
+      setStatus('err', 'Capture the chat first — there\'s no text to work from yet.');
+      return;
+    }
+
+    let userContent = `Chat transcript so far:\n---\n${transcript}\n---`;
+    if (note) userContent += `\n\nAdditional instruction from the agent: ${note}`;
+
+    generateBtn.disabled = true;
+    setStatus('busy', 'Asking the AI for a suggested reply...');
+
+    try{
+      const resp = await fetch('https://openrouter.ai/api/v1/chat/completions', {
+        method: 'POST',
+        headers: {
+          'Authorization': `Bearer ${apiKey}`,
+          'Content-Type': 'application/json'
+        },
+        body: JSON.stringify({
+          model: model,
+          messages: [
+            { role: 'system', content: SYSTEM_PROMPT },
+            { role: 'user', content: userContent }
+          ],
+          temperature: 0.6,
+          max_tokens: 300
+        })
+      });
+
+      if (!resp.ok){
+        const errText = await resp.text();
+        throw new Error(`API error ${resp.status}: ${errText.slice(0,200)}`);
+      }
+
+      const data = await resp.json();
+      const reply = data.choices?.[0]?.message?.content?.trim() || '(No reply returned.)';
+      responseText.value = reply;
+      setStatus('ok', 'Reply drafted. Review it before sending to the customer.');
+    }catch(err){
+      setStatus('err', 'Could not generate a reply: ' + err.message);
+    }finally{
+      generateBtn.disabled = false;
+    }
+  });
+
+  // ---- copy ----
+  copyBtn.addEventListener('click', async () => {
+    if (!responseText.value.trim()) return;
+    try{
+      await navigator.clipboard.writeText(responseText.value.trim());
+      setStatus('ok', 'Reply copied to clipboard.');
+    }catch(err){
+      responseText.select();
+      document.execCommand('copy');
+      setStatus('ok', 'Reply copied to clipboard.');
+    }
+  });
+})();
+</script>
+
+</body>
+</html>
